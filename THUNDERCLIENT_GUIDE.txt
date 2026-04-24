@@ -1,0 +1,101 @@
+# Thunder Client — API Testing Guide
+
+Make sure Django is running first:
+  cd backend
+  python manage.py runserver
+
+Base URL: http://127.0.0.1:8000
+
+================================================================
+1. LOGIN  →  get your token
+================================================================
+Method : POST
+URL    : http://127.0.0.1:8000/api/auth/login/
+Headers: Content-Type: application/json
+Body   : (select JSON)
+{
+    "username": "your_username",
+    "password": "your_password"
+}
+
+✅ Success response (200):
+{
+    "success": true,
+    "token": "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b",
+    "user": { "id": 1, "username": "admin", ... }
+}
+
+❌ Wrong credentials (401):
+{
+    "success": false,
+    "message": "Invalid credentials. You do not have access."
+}
+
+================================================================
+2. VIEW PROFILE  →  requires token
+================================================================
+Method : GET
+URL    : http://127.0.0.1:8000/api/auth/profile/
+Headers:
+    Content-Type : application/json
+    Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
+             ↑ paste YOUR token from the login response here
+
+✅ Success response (200):
+{
+    "success": true,
+    "user": {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "first_name": "",
+        "last_name": "",
+        "full_name": "admin",
+        "department": null
+    }
+}
+
+================================================================
+3. VERIFY TOKEN
+================================================================
+Method : GET
+URL    : http://127.0.0.1:8000/api/auth/verify/
+Headers:
+    Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
+
+✅ Success response (200):
+{
+    "success": true,
+    "valid": true,
+    "user": { ... }
+}
+
+================================================================
+4. LOGOUT  →  deletes the token server-side
+================================================================
+Method : POST
+URL    : http://127.0.0.1:8000/api/auth/logout/
+Headers:
+    Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
+
+✅ Success response (200):
+{
+    "success": true,
+    "message": "Logged out successfully."
+}
+
+================================================================
+TIPS
+================================================================
+- The Authorization header format is EXACTLY:
+    Token <space> your_token_here
+  NOT "Bearer", NOT "bearer" — it must be "Token"
+
+- Copy the token from the login response and paste it
+  into every subsequent request's Authorization header.
+
+- In Thunder Client you can save the token as an
+  Environment Variable to avoid copy-pasting each time:
+    1. Click "Env" tab → New Environment → e.g. "Local"
+    2. Add variable:  TOKEN = <paste token value>
+    3. In headers use:  Authorization: Token {{TOKEN}}

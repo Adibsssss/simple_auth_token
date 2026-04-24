@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { loginUser } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import AccessDeniedModal from '../components/AccessDeniedModal'
@@ -519,7 +519,10 @@ const LoginPage = () => {
               lineHeight: 1.6,
             }}
           >
-            Having trouble? Contact your system administrator.
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: 'var(--color-accent)', textDecoration: 'none', fontWeight: 500 }}>
+              Register here
+            </Link>
           </p>
         </div>
       </div>
