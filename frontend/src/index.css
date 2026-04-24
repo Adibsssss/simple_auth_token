@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --color-bg: #0a0c10;
+  --color-surface: #111318;
+  --color-surface-2: #1a1d24;
+  --color-border: #2a2d36;
+  --color-border-hover: #3d4150;
+  --color-accent: #c9a84c;
+  --color-accent-light: #e8c96a;
+  --color-accent-dim: rgba(201, 168, 76, 0.12);
+  --color-text-primary: #f0ede8;
+  --color-text-secondary: #9a9ba3;
+  --color-text-muted: #5a5c66;
+  --color-error: #e05252;
+  --color-error-dim: rgba(224, 82, 82, 0.1);
+  --color-success: #4caf82;
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+
+/* Custom animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-fade-in-up  { animation: fadeInUp 0.5s ease forwards; }
+.animate-fade-in     { animation: fadeIn 0.4s ease forwards; }
+.animate-scale-in    { animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-spin-custom { animation: spin 0.8s linear infinite; }
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+
+/* Gold shimmer text */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 0%,
+    var(--color-accent-light) 40%,
+    var(--color-accent) 60%,
+    var(--color-accent-light) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Input focus glow */
+.input-glow:focus {
+  box-shadow: 0 0 0 1px var(--color-accent), 0 0 20px rgba(201, 168, 76, 0.08);
+}
+
+/* Button hover lift */
+.btn-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-lift:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(201, 168, 76, 0.2);
+}
+.btn-lift:active:not(:disabled) {
+  transform: translateY(0);
+}
