@@ -4,6 +4,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .serializers import (
     RegisterSerializer,
@@ -149,6 +152,9 @@ def change_password_view(request):
 @permission_classes([IsAuthenticated])
 def user_list_view(request):
     if not (request.user.is_staff or request.user.is_superuser):
+        logger.warning(
+            print(f"\n[UNAUTHORIZED] User '{request.user.username}' attempted to access {request.path} — Permission denied.\n")
+        )
         return Response({
             'success': False,
             'message': 'Permission denied. Admins only.',

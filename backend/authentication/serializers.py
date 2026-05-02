@@ -55,17 +55,24 @@ class UserSerializer(serializers.ModelSerializer):
     """Read-only user output."""
     full_name  = serializers.SerializerMethodField()
     is_admin   = serializers.SerializerMethodField()
+    department = serializers.SerializerMethodField()
 
     class Meta:
         model  = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'full_name', 'is_admin', 'date_joined']
+                  'full_name', 'is_admin', 'department', 'date_joined', 'is_active']
 
     def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
 
     def get_is_admin(self, obj):
         return obj.is_staff or obj.is_superuser
+
+    def get_department(self, obj):
+        try:
+            return obj.profile.department
+        except Exception:
+            return None
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
@@ -81,10 +88,88 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         return value
 
 
+class AdminCreateUserSerializer(serializers.ModelSerializer):
+    """Admin-only: create a new user with optional staff flag."""
+    password   = serializers.CharField(write_only=True, min_length=6)
+    department = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    is_admin   = serializers.BooleanField(default=False)
+
+    class Meta:
+        model  = User
+        fields = ['username', 'email', 'first_name', 'last_name',
+                  'password', 'department', 'is_admin']
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError('Username already taken.')
+        return value
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('Email already in use.')
+        return value
+
+    def create(self, validated_data):
+        department = validated_data.pop('department', None)
+        is_admin   = validated_data.pop('is_admin', False)
+        password   = validated_data.pop('password')
+
+        user = User(**validated_data)
+        user.set_password(password)
+        user.is_staff = is_admin
+        user.save()
+
+        # Create or update UserProfile with department
+        from authentication.models import UserProfile
+        UserProfile.objects.get_or_create(user=user)
+        if department:
+            user.profile.department = department
+            user.profile.save()
+
+        return user
+
+
+class AdminUpdateUserSerializer(serializers.ModelSerializer):
+    """Admin-only: update any user's details."""
+    department = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    is_admin   = serializers.BooleanField(required=False)
+
+    class Meta:
+        model  = User
+        fields = ['email', 'first_name', 'last_name', 'is_active', 'department', 'is_admin']
+
+    def validate_email(self, value):
+        user = self.instance
+        if value and User.objects.filter(email=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('Email already in use.')
+        return value
+
+    def update(self, instance, validated_data):
+        department = validated_data.pop('department', None)
+        is_admin   = validated_data.pop('is_admin', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if is_admin is not None:
+            instance.is_staff = is_admin
+
+        instance.save()
+
+        # Update UserProfile department
+        if department is not None:
+            from authentication.models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=instance)
+            profile.department = department
+            profile.save()
+
+        return instance
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """For changing own password."""
-    old_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=6)
+    old_password  = serializers.CharField(write_only=True)
+    new_password  = serializers.CharField(write_only=True, min_length=6)
     new_password2 = serializers.CharField(write_only=True, label='Confirm new password')
 
     def validate(self, data):
