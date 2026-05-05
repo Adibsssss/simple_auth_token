@@ -1,5 +1,5 @@
 """
-Django settings for auth_project.
+Django settings for auth_project — using Djoser for authentication.
 """
 
 from pathlib import Path
@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'djoser',
     'authentication',
     'items',
 ]
@@ -58,13 +59,12 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database - MySQL via XAMPP
-# Make sure XAMPP MySQL is running on port 3306
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'auth_db',
         'USER': 'root',
-        'PASSWORD': '',           # Default XAMPP MySQL has no password
+        'PASSWORD': '',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {
@@ -73,13 +73,7 @@ DATABASES = {
     }
 }
 
-# Password validation
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
-]
+
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Manila'
@@ -89,7 +83,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# REST Framework
+# ─── REST Framework ────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
@@ -99,23 +93,47 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS - Allow React dev server
+# ─── Djoser Configuration ──────────────────────────────────────────────────────
+DJOSER = {
+    'LOGIN_FIELD': 'username',
+    'USER_CREATE_PASSWORD_RETYPE': False,
+    'SERIALIZERS': {
+        'user': 'authentication.serializers.UserSerializer',
+        'current_user': 'authentication.serializers.UserSerializer',
+        'user_create': 'authentication.serializers.RegisterSerializer',
+    },
+    'PERMISSIONS': {
+        # Only admins can list all users via /api/auth/users/
+        'user_list': ['authentication.permissions.IsAdminUser'],
+        # Any authenticated user can view/update their own profile via /api/auth/users/me/
+        'current_user': ['rest_framework.permissions.IsAuthenticated'],
+        # Viewing other users by ID is admin only
+        'user': ['authentication.permissions.IsAdminUser'],
+    },
+    # Must be False so users can access their own /users/me/ endpoint
+    'HIDE_USERS': False,
+}
+
+# Relaxed password validation for development
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+]
+
+# ─── CORS ──────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000',
 ]
-
 CORS_ALLOW_CREDENTIALS = True
 
+# ─── Logging ───────────────────────────────────────────────────────────────────
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
+        'console': {'class': 'logging.StreamHandler'},
     },
     'root': {
         'handlers': ['console'],

@@ -1,27 +1,33 @@
 import { useState } from "react";
 import axios from "axios";
 
+// Djoser endpoints + custom admin endpoint for demo
 const ENDPOINTS = [
   {
-    id: "profile",
-    label: "GET Profile",
+    id: "me",
+    label: "GET Profile (me)",
     method: "GET",
-    path: "/api/auth/profile/",
-    description: "Returns the authenticated users profile data.",
+    path: "/api/auth/users/me/",
+    description:
+      "Djoser: Returns the authenticated user's own profile. Requires token.",
+    adminOnly: false,
   },
   {
-    id: "verify",
-    label: "GET Verify Token",
+    id: "users",
+    label: "GET All Users",
     method: "GET",
-    path: "/api/auth/verify/",
-    description: "Validates whether the current token is still active.",
+    path: "/api/admin/users/",
+    description:
+      "Custom admin endpoint: Lists all users. Admin/staff only — returns 403 for regular users.",
+    adminOnly: true,
   },
   {
     id: "items",
     label: "GET Items",
     method: "GET",
     path: "/api/items/",
-    description: "Returns all items in the system.",
+    description: "Returns all items. Any authenticated user can access this.",
+    adminOnly: false,
   },
 ];
 
@@ -31,7 +37,9 @@ const StatusBadge = ({ code }) => {
       ? "var(--color-success)"
       : code === 401
         ? "var(--color-error)"
-        : "#f0a500";
+        : code === 403
+          ? "#f0a500"
+          : "var(--color-error)";
 
   const label =
     code >= 200 && code < 300
@@ -75,7 +83,6 @@ const StatusBadge = ({ code }) => {
 
 const JsonBlock = ({ data }) => {
   const formatted = JSON.stringify(data, null, 2);
-
   const highlight = (str) =>
     str
       .replace(/"(.*?)":/g, '<span style="color:#c9a84c">"$1"</span>:')
@@ -117,30 +124,22 @@ const ApiDemoPanel = () => {
     }
 
     const startTime = Date.now();
-
     try {
       const res = await axios({
         method: selectedEndpoint.method,
         url: selectedEndpoint.path,
         headers,
-        validateStatus: () => true, // never throw on any status
+        validateStatus: () => true,
       });
-
       setResult({
         status: res.status,
         data: res.data,
-        headers: {
-          "Content-Type": res.headers["content-type"] || "—",
-          Authorization:
-            useAuth && token ? `Token ${token.slice(0, 10)}...` : "(not sent)",
-        },
         duration: Date.now() - startTime,
       });
     } catch (err) {
       setResult({
         status: 0,
         data: { error: err.message },
-        headers: {},
         duration: Date.now() - startTime,
       });
     } finally {
@@ -207,12 +206,12 @@ const ApiDemoPanel = () => {
                 color: "var(--color-text-primary)",
               }}
             >
-              API Demo Explorer
+              Djoser API Explorer
             </h3>
             <p
               style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}
             >
-              Test endpoints live — with and without authentication
+              Test Djoser endpoints live — toggle auth to see 401/403 responses
             </p>
           </div>
         </div>
@@ -331,15 +330,13 @@ const ApiDemoPanel = () => {
                 transition: "all 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                if (selectedEndpoint.id !== ep.id) {
+                if (selectedEndpoint.id !== ep.id)
                   e.currentTarget.style.backgroundColor =
                     "var(--color-surface-2)";
-                }
               }}
               onMouseLeave={(e) => {
-                if (selectedEndpoint.id !== ep.id) {
+                if (selectedEndpoint.id !== ep.id)
                   e.currentTarget.style.backgroundColor = "transparent";
-                }
               }}
             >
               <div
@@ -357,6 +354,21 @@ const ApiDemoPanel = () => {
                 >
                   {ep.method}
                 </span>
+                {ep.adminOnly && (
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                      color: "var(--color-accent)",
+                      backgroundColor: "var(--color-accent-dim)",
+                      padding: "1px 5px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    ADMIN
+                  </span>
+                )}
               </div>
               <p
                 style={{
@@ -441,7 +453,6 @@ const ApiDemoPanel = () => {
                 alignItems: "center",
                 gap: "7px",
                 whiteSpace: "nowrap",
-                transition: "all 0.2s ease",
               }}
             >
               {loading ? (
@@ -460,7 +471,7 @@ const ApiDemoPanel = () => {
                 </>
               ) : (
                 <>
-                  Send
+                  Send{" "}
                   <svg
                     width="13"
                     height="13"
@@ -500,26 +511,31 @@ const ApiDemoPanel = () => {
             <div
               style={{ display: "flex", flexDirection: "column", gap: "4px" }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  fontSize: "0.78rem",
-                  fontFamily: "monospace",
-                }}
-              >
-                <span
+              {[
+                { key: "Content-Type", val: "application/json", always: true },
+              ].map(({ key, val }) => (
+                <div
+                  key={key}
                   style={{
-                    color: "var(--color-text-muted)",
-                    minWidth: "140px",
+                    display: "flex",
+                    gap: "12px",
+                    fontSize: "0.78rem",
+                    fontFamily: "monospace",
                   }}
                 >
-                  Content-Type
-                </span>
-                <span style={{ color: "var(--color-text-secondary)" }}>
-                  application/json
-                </span>
-              </div>
+                  <span
+                    style={{
+                      color: "var(--color-text-muted)",
+                      minWidth: "140px",
+                    }}
+                  >
+                    {key}
+                  </span>
+                  <span style={{ color: "var(--color-text-secondary)" }}>
+                    {val}
+                  </span>
+                </div>
+              ))}
               <div
                 style={{
                   display: "flex",
@@ -608,6 +624,8 @@ const ApiDemoPanel = () => {
                   style={{
                     fontSize: "0.75rem",
                     color: "var(--color-text-muted)",
+                    textAlign: "center",
+                    maxWidth: "280px",
                   }}
                 >
                   {selectedEndpoint.description}
@@ -623,7 +641,6 @@ const ApiDemoPanel = () => {
                   gap: "16px",
                 }}
               >
-                {/* Status row */}
                 <div
                   style={{
                     display: "flex",
@@ -658,7 +675,6 @@ const ApiDemoPanel = () => {
                   </span>
                 </div>
 
-                {/* Alert banner for 401 */}
                 {result.status === 401 && (
                   <div
                     style={{
@@ -693,7 +709,7 @@ const ApiDemoPanel = () => {
                           marginBottom: "2px",
                         }}
                       >
-                        Access Denied — No valid token provided
+                        401 Unauthorized — No valid token
                       </p>
                       <p
                         style={{
@@ -701,13 +717,60 @@ const ApiDemoPanel = () => {
                           color: "rgba(224,82,82,0.7)",
                         }}
                       >
-                        Toggle "Send Auth Token" ON and resend to authenticate.
+                        Djoser rejected the request. Toggle auth ON and resend.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Success banner */}
+                {result.status === 403 && (
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "8px",
+                      backgroundColor: "rgba(240,165,0,0.08)",
+                      border: "1px solid rgba(240,165,0,0.25)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                    }}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#f0a500"
+                      strokeWidth="2"
+                      style={{ marginTop: "1px", flexShrink: 0 }}
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <div>
+                      <p
+                        style={{
+                          fontSize: "0.82rem",
+                          fontWeight: 600,
+                          color: "#f0a500",
+                          marginBottom: "2px",
+                        }}
+                      >
+                        403 Forbidden — Admin access required
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "rgba(240,165,0,0.7)",
+                        }}
+                      >
+                        You are authenticated but lack admin privileges for this
+                        endpoint.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {result.status >= 200 && result.status < 300 && (
                   <div
                     style={{
@@ -737,13 +800,11 @@ const ApiDemoPanel = () => {
                         fontWeight: 500,
                       }}
                     >
-                      Authenticated request successful — token was accepted by
-                      Django
+                      Request successful — Djoser token accepted
                     </p>
                   </div>
                 )}
 
-                {/* JSON body */}
                 <div
                   style={{
                     backgroundColor: "var(--color-surface-2)",

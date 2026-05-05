@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import api from "../api/axios";
+import {
+  getUsers,
+  adminCreateUser,
+  adminUpdateUser,
+  adminDeleteUser,
+} from "../api/auth";
 
-// ─── Small reusable pieces ───────────────────────────────────────
+// ─── Small reusable pieces ────────────────────────────────────────────────────
 
 const Badge = ({ children, color = "var(--color-accent)" }) => (
   <span
@@ -82,7 +87,7 @@ const inputStyle = (hasError) => ({
   transition: "border-color 0.2s ease",
 });
 
-// ─── Confirm Delete Dialog ─────────────────────────────────────
+// ─── Confirm Delete Dialog ─────────────────────────────────────────────────────
 
 const ConfirmDialog = ({ user, onConfirm, onCancel, loading }) => (
   <div
@@ -182,7 +187,7 @@ const ConfirmDialog = ({ user, onConfirm, onCancel, loading }) => (
           <strong style={{ color: "var(--color-text-primary)" }}>
             @{user?.username}
           </strong>
-          ? All their data will be permanently removed.
+          ?
         </p>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
@@ -232,7 +237,7 @@ const ConfirmDialog = ({ user, onConfirm, onCancel, loading }) => (
   </div>
 );
 
-// ─── User Form Modal (Create / Edit) ─────────────────────────────
+// ─── User Form Modal ───────────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
   username: "",
@@ -283,18 +288,20 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
       setErrors(fieldErrors);
       return;
     }
-
     setLoading(true);
     try {
       const payload = { ...form };
-      if (!payload.password) delete payload.password; // don't send empty password on edit
+      if (!payload.password) delete payload.password;
 
+      let saved;
       if (mode === "create") {
-        const res = await api.post("/auth/users/", payload);
-        onSave(res.data.user, "created");
+        const res = await adminCreateUser(payload);
+        saved = res.user;
+        onSave(saved, "created");
       } else {
-        const res = await api.patch(`/auth/users/${user.id}/`, payload);
-        onSave(res.data.user, "updated");
+        const res = await adminUpdateUser(user.id, payload);
+        saved = res.user;
+        onSave(saved, "updated");
       }
     } catch (err) {
       if (err.response?.data?.errors) {
@@ -345,7 +352,6 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
           flexDirection: "column",
         }}
       >
-        {/* Modal header */}
         <div
           style={{
             padding: "22px 26px",
@@ -408,7 +414,6 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
           </button>
         </div>
 
-        {/* Modal body */}
         <div style={{ padding: "24px 26px", overflowY: "auto", flex: 1 }}>
           {errors.general && (
             <div
@@ -597,7 +602,6 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
             </div>
           </Field>
 
-          {/* Toggles */}
           <div
             style={{
               display: "flex",
@@ -697,7 +701,6 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
           </div>
         </div>
 
-        {/* Modal footer */}
         <div
           style={{
             padding: "18px 26px",
@@ -758,7 +761,7 @@ const UserFormModal = ({ mode, user, onSave, onClose }) => {
   );
 };
 
-// ─── Access Wall (non-admin) ──────────────────────────────────────
+// ─── Access Wall ───────────────────────────────────────────────────────────────
 
 const AccessWall = () => (
   <div
@@ -792,16 +795,6 @@ const AccessWall = () => (
       <div
         style={{
           position: "absolute",
-          inset: "8px",
-          borderRadius: "50%",
-          backgroundColor: "rgba(224,82,82,0.06)",
-          animation: "pulse-ring 2s ease-out infinite",
-          animationDelay: "0.4s",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
           inset: "16px",
           borderRadius: "50%",
           backgroundColor: "rgba(224,82,82,0.12)",
@@ -825,7 +818,6 @@ const AccessWall = () => (
         </svg>
       </div>
     </div>
-
     <h2
       style={{
         fontFamily: "var(--font-display)",
@@ -854,20 +846,17 @@ const AccessWall = () => (
   </div>
 );
 
-// ─── Main User Management Tab ─────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 const UserManagementTab = ({ currentUser }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState(null);
-
-  const [modal, setModal] = useState(null); // null | { mode: 'create' } | { mode: 'edit', user }
+  const [modal, setModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [forbidden, setForbidden] = useState(false);
-
-  const isAdmin = currentUser?.is_admin;
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -877,8 +866,8 @@ const UserManagementTab = ({ currentUser }) => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/auth/users/");
-      setUsers(res.data.users || []);
+      const res = await getUsers();
+      setUsers(res.users || []);
     } catch (err) {
       if (err.response?.status === 403) {
         setForbidden(true);
@@ -890,6 +879,7 @@ const UserManagementTab = ({ currentUser }) => {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -909,7 +899,7 @@ const UserManagementTab = ({ currentUser }) => {
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      await api.delete(`/auth/users/${deleteTarget.id}/`);
+      await adminDeleteUser(deleteTarget.id);
       setUsers((p) => p.filter((u) => u.id !== deleteTarget.id));
       showToast(`User "@${deleteTarget.username}" deleted.`);
       setDeleteTarget(null);
@@ -955,35 +945,9 @@ const UserManagementTab = ({ currentUser }) => {
             alignItems: "center",
             gap: "10px",
             boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-            animation: "scaleIn 0.2s ease forwards",
             maxWidth: "360px",
           }}
         >
-          {toast.type === "error" ? (
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-          ) : (
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
           {toast.message}
         </div>
       )}
@@ -1017,7 +981,6 @@ const UserManagementTab = ({ currentUser }) => {
               : `${users.length} user${users.length !== 1 ? "s" : ""} registered`}
           </p>
         </div>
-
         <div
           style={{
             display: "flex",
@@ -1026,7 +989,6 @@ const UserManagementTab = ({ currentUser }) => {
             flexWrap: "wrap",
           }}
         >
-          {/* Search */}
           <div style={{ position: "relative" }}>
             <svg
               width="14"
@@ -1069,8 +1031,6 @@ const UserManagementTab = ({ currentUser }) => {
               }
             />
           </div>
-
-          {/* Add user button */}
           <button
             onClick={() => setModal({ mode: "create" })}
             style={{
@@ -1087,7 +1047,6 @@ const UserManagementTab = ({ currentUser }) => {
               fontWeight: 700,
               fontFamily: "var(--font-body)",
               cursor: "pointer",
-              transition: "opacity 0.2s",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
@@ -1117,7 +1076,6 @@ const UserManagementTab = ({ currentUser }) => {
           overflow: "hidden",
         }}
       >
-        {/* Table header */}
         <div
           style={{
             display: "grid",
@@ -1145,7 +1103,6 @@ const UserManagementTab = ({ currentUser }) => {
           )}
         </div>
 
-        {/* Rows */}
         {loading ? (
           <div
             style={{
@@ -1176,7 +1133,6 @@ const UserManagementTab = ({ currentUser }) => {
                 ? `${u.first_name[0]}${u.last_name[0]}`.toUpperCase()
                 : u.username[0].toUpperCase();
             const isSelf = u.id === currentUser?.id;
-
             return (
               <div
                 key={u.id}
@@ -1199,7 +1155,6 @@ const UserManagementTab = ({ currentUser }) => {
                   (e.currentTarget.style.backgroundColor = "transparent")
                 }
               >
-                {/* User column */}
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "12px" }}
                 >
@@ -1259,8 +1214,6 @@ const UserManagementTab = ({ currentUser }) => {
                     </p>
                   </div>
                 </div>
-
-                {/* Email */}
                 <p
                   style={{
                     fontSize: "0.82rem",
@@ -1273,8 +1226,6 @@ const UserManagementTab = ({ currentUser }) => {
                 >
                   {u.email || "—"}
                 </p>
-
-                {/* Department */}
                 <p
                   style={{
                     fontSize: "0.82rem",
@@ -1292,8 +1243,6 @@ const UserManagementTab = ({ currentUser }) => {
                     </span>
                   )}
                 </p>
-
-                {/* Role */}
                 <div>
                   {u.is_admin ? (
                     <Badge color="var(--color-accent)">Admin</Badge>
@@ -1301,8 +1250,6 @@ const UserManagementTab = ({ currentUser }) => {
                     <Badge color="var(--color-text-muted)">User</Badge>
                   )}
                 </div>
-
-                {/* Status */}
                 <div>
                   {u.is_active ? (
                     <Badge color="var(--color-success)">Active</Badge>
@@ -1310,8 +1257,6 @@ const UserManagementTab = ({ currentUser }) => {
                     <Badge color="var(--color-error)">Inactive</Badge>
                   )}
                 </div>
-
-                {/* Actions */}
                 <div style={{ display: "flex", gap: "6px" }}>
                   <button
                     onClick={() => setModal({ mode: "edit", user: u })}
@@ -1400,7 +1345,6 @@ const UserManagementTab = ({ currentUser }) => {
         )}
       </div>
 
-      {/* Modals */}
       {modal && (
         <UserFormModal
           mode={modal.mode}
@@ -1409,7 +1353,6 @@ const UserManagementTab = ({ currentUser }) => {
           onClose={() => setModal(null)}
         />
       )}
-
       {deleteTarget && (
         <ConfirmDialog
           user={deleteTarget}

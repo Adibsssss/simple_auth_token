@@ -1,66 +1,23 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
-
-
-class RegisterSerializer(serializers.ModelSerializer):
-    """For creating a new user account."""
-    password  = serializers.CharField(write_only=True, min_length=6)
-    password2 = serializers.CharField(write_only=True, label='Confirm password')
-
-    class Meta:
-        model  = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'password', 'password2']
-
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError('Username already taken.')
-        return value
-
-    def validate_email(self, value):
-        if value and User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('Email already in use.')
-        return value
-
-    def validate(self, data):
-        if data['password'] != data['password2']:
-            raise serializers.ValidationError({'password2': 'Passwords do not match.'})
-        return data
-
-    def create(self, validated_data):
-        validated_data.pop('password2')
-        password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
-
-
-class LoginSerializer(serializers.Serializer):
-    """Validate login credentials."""
-    username = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        user = authenticate(username=data.get('username'), password=data.get('password'))
-        if not user:
-            raise serializers.ValidationError('Invalid credentials. Access denied.')
-        if not user.is_active:
-            raise serializers.ValidationError('This account has been disabled.')
-        data['user'] = user
-        return data
+from djoser.serializers import UserCreateSerializer
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Read-only user output."""
+    """
+    Read-only serializer used by Djoser for /users/me/ and /users/{id}/.
+    Also used by our custom admin endpoints.
+    """
     full_name  = serializers.SerializerMethodField()
     is_admin   = serializers.SerializerMethodField()
     department = serializers.SerializerMethodField()
 
     class Meta:
         model  = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'full_name', 'is_admin', 'department', 'date_joined', 'is_active']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'full_name', 'is_admin', 'department', 'date_joined', 'is_active',
+        ]
 
     def get_full_name(self, obj):
         return obj.get_full_name() or obj.username
@@ -75,8 +32,35 @@ class UserSerializer(serializers.ModelSerializer):
             return None
 
 
+class RegisterSerializer(UserCreateSerializer):
+    """
+    Extends Djoser's UserCreateSerializer to accept
+    first_name and last_name at sign-up.
+    """
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name  = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta(UserCreateSerializer.Meta):
+        model  = User
+        fields = [
+            'username', 'email',
+            'first_name', 'last_name',
+            'password',
+        ]
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError('Username already taken.')
+        return value
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('Email already in use.')
+        return value
+
+
 class UpdateUserSerializer(serializers.ModelSerializer):
-    """For updating a user's own profile."""
+    """For updating a user's own profile (used by our custom endpoint)."""
     class Meta:
         model  = User
         fields = ['email', 'first_name', 'last_name']
@@ -119,12 +103,11 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         user.is_staff = is_admin
         user.save()
 
-        # Create or update UserProfile with department
         from authentication.models import UserProfile
-        UserProfile.objects.get_or_create(user=user)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         if department:
-            user.profile.department = department
-            user.profile.save()
+            profile.department = department
+            profile.save()
 
         return user
 
@@ -156,7 +139,6 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        # Update UserProfile department
         if department is not None:
             from authentication.models import UserProfile
             profile, _ = UserProfile.objects.get_or_create(user=instance)
@@ -167,7 +149,7 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    """For changing own password."""
+    """For changing own password via custom endpoint (alternative to Djoser's)."""
     old_password  = serializers.CharField(write_only=True)
     new_password  = serializers.CharField(write_only=True, min_length=6)
     new_password2 = serializers.CharField(write_only=True, label='Confirm new password')
