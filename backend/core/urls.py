@@ -2,13 +2,18 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/auth/', include('djoser.urls')),
-    path('api/auth/', include('djoser.urls.authtoken')),
+    path("admin/", admin.site.urls),
 
-    # ── Custom admin-only user management ─────────────────────────────────────
-    path('api/admin/', include('authentication.urls')),
+    # Djoser: register, login, logout, password change, /users/me/
+    path("api/auth/", include("djoser.urls")),
+    path("api/auth/", include("djoser.urls.authtoken")),
 
-    # ── Items ──────────────────────────────────────────────────────────────────
-    path('api/items/', include('items.urls')),
+    # Custom profile endpoint — works for ALL users
+    path("api/auth/", include("authentication.urls")),
+
+    # Admin-only user management — separate prefix avoids Djoser conflict
+    path("api/admin/", include("authentication.admin_urls")),
+
+    # Items
+    path("api/items/", include("items.urls")),
 ]

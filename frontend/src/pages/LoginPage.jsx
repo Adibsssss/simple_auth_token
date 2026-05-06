@@ -38,16 +38,18 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      // Djoser returns { auth_token: "..." }
+      // Step 1: Djoser returns { auth_token: "..." }
       const data = await loginUser(formData.username, formData.password);
-      // login() fetches /users/me/ internally and sets user state
+      // Step 2: login() stores token then fetches /users/me/
       await login(data.auth_token);
       navigate("/dashboard", { replace: true });
     } catch (err) {
       let msg = "Invalid credentials. You do not have access.";
-      if (err.response?.data) {
+      if (err.message && !err.response) {
+        // Error thrown from AuthContext login() after profile fetch failed
+        msg = err.message;
+      } else if (err.response?.data) {
         const d = err.response.data;
-        // Djoser returns { non_field_errors: ["..."] } on bad credentials
         msg = d.non_field_errors?.[0] || d.detail || d.message || msg;
       } else if (!err.response) {
         msg =

@@ -20,13 +20,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Handle 401 globally — skip redirect for login endpoint so error modal shows
+// Handle 401 globally
+// Skip redirect only for the login and register endpoints
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const url = error.config?.url || "";
     const isLoginRequest = url.includes("/auth/token/login/");
-    const isRegisterRequest = url.includes("/auth/users/");
+    const isRegisterRequest =
+      url === "/auth/users/" || url.endsWith("/auth/users/");
 
     if (
       error.response?.status === 401 &&

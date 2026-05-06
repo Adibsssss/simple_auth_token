@@ -38,11 +38,12 @@ export const logoutUser = async () => {
 };
 
 /**
- * GET /api/auth/users/me/
- * Returns the current authenticated user's profile.
+ * GET /api/auth/profile/
+ * Returns the current authenticated user profile.
+ * Works for ALL users (not just admins).
  */
 export const getUserProfile = async () => {
-  const response = await api.get("/auth/users/me/");
+  const response = await api.get("/auth/profile/");
   return response.data;
 };
 
@@ -51,7 +52,7 @@ export const getUserProfile = async () => {
  * Update current user's own profile fields.
  */
 export const updateProfile = async (data) => {
-  const response = await api.patch("/auth/users/me/", data);
+  const response = await api.patch("/auth/profile/", data);
   return response.data;
 };
 

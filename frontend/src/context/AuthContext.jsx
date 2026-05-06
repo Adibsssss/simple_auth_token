@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount: restore session from localStorage and verify with Djoser /users/me/
+  // On mount: restore session from localStorage and re-verify with Djoser /users/me/
   useEffect(() => {
     const storedToken = localStorage.getItem("auth_token");
     const storedUser = localStorage.getItem("auth_user");
@@ -23,17 +23,16 @@ export const AuthProvider = ({ children }) => {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
 
-      // Re-fetch profile from Djoser to confirm token is still valid
       getUserProfile()
         .then((userData) => {
-          const normalized = {
-            ...userData,
-            is_admin: userData.is_admin ?? userData.is_staff ?? false,
-          };
+          const normalized = normalizeUser(userData);
           setUser(normalized);
           localStorage.setItem("auth_user", JSON.stringify(normalized));
         })
-        .catch(() => clearSession())
+        .catch(() => {
+          // If /users/me/ fails on mount, clear session (token likely expired)
+          clearSession();
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -47,29 +46,40 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const normalizeUser = (userData) => ({
+    ...userData,
+    is_admin: userData.is_admin ?? userData.is_staff ?? false,
+    full_name: userData.full_name || userData.username || "",
+  });
+
   /**
    * Called after successful Djoser login.
-   * Djoser's login response: { auth_token: "..." }
-   * We then fetch the user profile separately from /users/me/
+   * Djoser returns { auth_token: "..." }
+   * We store the token first, then fetch /users/me/
    */
   const login = useCallback(async (authToken) => {
+    // Store token immediately so the /users/me/ request is authenticated
     localStorage.setItem("auth_token", authToken);
     setToken(authToken);
 
-    // Fetch profile from /api/auth/users/me/ using the new token
     try {
       const userData = await getUserProfile();
-      // Normalize — ensure is_admin always exists as a boolean
-      const normalized = {
-        ...userData,
-        is_admin: userData.is_admin ?? userData.is_staff ?? false,
-      };
+      const normalized = normalizeUser(userData);
       localStorage.setItem("auth_user", JSON.stringify(normalized));
       setUser(normalized);
       return normalized;
     } catch (err) {
+      // If fetching profile fails after a successful token login,
+      // do NOT clear the session — log the error and rethrow
+      console.error(
+        "Failed to fetch user profile after login:",
+        err?.response?.status,
+        err?.response?.data,
+      );
       clearSession();
-      throw err;
+      throw new Error(
+        "Login succeeded but could not load your profile. Please try again.",
+      );
     }
   }, []);
 
@@ -77,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await logoutUser();
     } catch (_) {
-      // Silently ignore — token may already be invalid
+      // Silently ignore
     } finally {
       clearSession();
     }
