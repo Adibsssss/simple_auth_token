@@ -148,6 +148,20 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
         return instance
 
 
+class SendEmailSerializer(serializers.Serializer):
+    """Validates the payload for the /api/auth/send-email/ endpoint."""
+    to_email = serializers.EmailField(
+        help_text="Recipient email address."
+    )
+    subject = serializers.CharField(
+        max_length=255,
+        help_text="Email subject line (max 255 characters)."
+    )
+    message = serializers.CharField(
+        help_text="Plain-text body of the email."
+    )
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """For changing own password via custom endpoint (alternative to Djoser's)."""
     old_password  = serializers.CharField(write_only=True)

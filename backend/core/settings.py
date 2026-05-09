@@ -75,6 +75,40 @@ DATABASES = {
 
 
 
+# ─── Email Configuration (SMTP via Gmail) ──────────────────────────────────────
+# To use Gmail:
+#   1. Enable 2-Step Verification on your Google Account
+#   2. Generate an App Password: myaccount.google.com → Security → App Passwords
+#   3. Replace the placeholders below with your credentials
+#
+# For local development / testing without a real SMTP server, switch to:
+#   EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+#   This prints emails to the terminal instead of sending them.
+
+EMAIL_BACKEND   = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST      = 'smtp.gmail.com'
+EMAIL_PORT      = 587
+EMAIL_USE_TLS   = True
+EMAIL_HOST_USER     = 'rojo.dave2004@gmail.com'   # ← replace
+EMAIL_HOST_PASSWORD = 'wkwt kudx urtf qoww'         # ← replace (App Password, not account password)
+DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPORTANT NOTES
+# ─────────────────────────────────────────────────────────────────────────────
+# • Never commit real credentials to version control.
+#   Use environment variables in production, e.g.:
+#       import os
+#       EMAIL_HOST_USER     = os.environ.get('EMAIL_HOST_USER', '')
+#       EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+#
+# • Gmail blocks "less secure app access" by default.
+#   App Passwords are the correct way to authenticate.
+#
+# • Other SMTP providers (Outlook, Yahoo, SendGrid, Mailgun) work too;
+#   simply change EMAIL_HOST, EMAIL_PORT, and EMAIL_USE_TLS accordingly.
+# ─────────────────────────────────────────────────────────────────────────────
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Manila'
 USE_I18N = True

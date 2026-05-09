@@ -4,6 +4,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from rest_framework.authtoken.models import Token
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import EmailLog
+
 import logging
 
 from .permissions import IsAdminUser
@@ -112,3 +118,70 @@ def user_detail_view(request, pk):
             "success": True,
             "message": f'User "{username}" deleted successfully.',
         }, status=status.HTTP_200_OK)
+    
+@api_view(["POST"])
+@permission_classes([])  # no auth required — this IS the login
+def custom_login_view(request):
+    username = request.data.get("username", "").strip()
+    password = request.data.get("password", "").strip()
+
+    if not username or not password:
+        return Response(
+            {"success": False, "message": "Username and password are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = authenticate(request, username=username, password=password)
+
+    if user is None:
+        return Response(
+            {"success": False, "message": "Invalid credentials."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    # Get or create token
+    token, _ = Token.objects.get_or_create(user=user)
+
+    # ── Send login notification email ──────────────────────────
+    if user.email:
+        subject = "New Login to Nexus Portal"
+        message = (
+            f"Hi {user.get_full_name() or user.username},\n\n"
+            f"A new login was detected on your Nexus Portal account.\n\n"
+            f"Username: {user.username}\n"
+            f"If this wasn't you, please contact your administrator immediately.\n\n"
+            f"— Nexus Portal"
+        )
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,  # don't block login if email fails
+            )
+            EmailLog.objects.create(
+                sent_by=user,
+                to_email=user.email,
+                subject=subject,
+                message=message,
+                success=True,
+            )
+        except Exception as exc:
+            EmailLog.objects.create(
+                sent_by=user,
+                to_email=user.email,
+                subject=subject,
+                message=message,
+                success=False,
+                error_info=str(exc),
+            )
+
+    return Response(
+        {
+            "success": True,
+            "token": token.key,
+            "user": UserSerializer(user).data,
+        },
+        status=status.HTTP_200_OK,
+    )
