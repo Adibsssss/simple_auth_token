@@ -24,10 +24,9 @@ export const registerUser = async (formData) => {
  * Returns { auth_token: "..." }
  */
 export const loginUser = async (username, password) => {
-  const response = await api.post("/auth/token/login/", { username, password });
-  return response.data; // { auth_token: "..." }
+  const response = await api.post("/auth/login/", { username, password });
+  return response.data; // { success: true, token: "...", user: {...} }
 };
-
 /**
  * POST /api/auth/token/logout/
  * Deletes the token server-side. Requires Authorization header.

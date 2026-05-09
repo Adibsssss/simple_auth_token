@@ -41,7 +41,7 @@ const LoginPage = () => {
       // Step 1: Djoser returns { auth_token: "..." }
       const data = await loginUser(formData.username, formData.password);
       // Step 2: login() stores token then fetches /users/me/
-      await login(data.auth_token);
+      await login(data.token);
       navigate("/dashboard", { replace: true });
     } catch (err) {
       let msg = "Invalid credentials. You do not have access.";
